@@ -197,7 +197,7 @@ def load_model_test_file(
 
 def discover_model_tests(
     path: pathlib.Path, ignore_patterns: t.Optional[t.List[str]] = None
-) -> t.Generator[ModelTestMetadata, None, None]:
+) -> t.Iterator[ModelTestMetadata]:
     """Discover model tests.
 
     Model tests are defined in YAML files and contain the inputs and outputs used to test model queries.
@@ -272,36 +272,16 @@ def run_tests(
 
 
 def get_all_model_tests(
-    path: pathlib.Path,
+    *paths: pathlib.Path,
     patterns: t.Optional[t.List[str]] = None,
     ignore_patterns: t.Optional[t.List[str]] = None,
 ) -> t.List[ModelTestMetadata]:
-    model_test_metadatas = list(discover_model_tests(pathlib.Path(path), ignore_patterns))
+    model_test_metadatas = [
+        meta for path in paths for meta in discover_model_tests(pathlib.Path(path), ignore_patterns)
+    ]
     if patterns:
         model_test_metadatas = filter_tests_by_patterns(model_test_metadatas, patterns)
     return model_test_metadatas
-
-
-def run_all_model_tests(
-    path: pathlib.Path,
-    snapshots: t.Dict[str, Snapshot],
-    engine_adapter: EngineAdapter,
-    verbosity: int = 1,
-    patterns: t.Optional[t.List[str]] = None,
-    ignore_patterns: t.Optional[t.List[str]] = None,
-) -> unittest.result.TestResult:
-    """Discover and run all model tests found in path.
-
-    Args:
-        path: A path to search for tests.
-        snapshots: All snapshots to use for expansion and mapping of physical locations.
-        engine_adapter: The engine adapter to use.
-        verbosity: The verbosity level.
-        patterns: A list of patterns to match against.
-        ignore_patterns: An optional list of patterns to ignore.
-    """
-    model_tests = get_all_model_tests(path, patterns, ignore_patterns)
-    return run_tests(model_tests, snapshots, engine_adapter, verbosity)
 
 
 def run_model_tests(
@@ -310,7 +290,6 @@ def run_model_tests(
     engine_adapter: EngineAdapter,
     verbosity: int = 1,
     patterns: t.Optional[t.List[str]] = None,
-    ignore_patterns: t.Optional[t.List[str]] = None,
 ) -> unittest.result.TestResult:
     """Load and run tests.
 
@@ -320,20 +299,15 @@ def run_model_tests(
         engine_adapter: The engine adapter to use.
         patterns: A list of patterns to match against.
         verbosity: The verbosity level.
-        ignore_patterns: An optional list of patterns to ignore.
     """
     loaded_tests = []
     for test in tests:
         filename, test_name = test.split("::", maxsplit=1) if "::" in test else (test, "")
         path = pathlib.Path(filename)
-        for ignore_pattern in ignore_patterns or []:
-            if path.match(ignore_pattern):
-                break
+        if test_name:
+            loaded_tests.append(load_model_test_file(path)[test_name])
         else:
-            if test_name:
-                loaded_tests.append(load_model_test_file(path)[test_name])
-            else:
-                loaded_tests.extend(load_model_test_file(path).values())
+            loaded_tests.extend(load_model_test_file(path).values())
     if patterns:
         loaded_tests = filter_tests_by_patterns(loaded_tests, patterns)
     return run_tests(loaded_tests, snapshots, engine_adapter, verbosity)

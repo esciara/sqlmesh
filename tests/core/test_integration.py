@@ -610,7 +610,8 @@ def test_revert_after_downstream_change(sushi_context: Context):
 @pytest.mark.core_integration
 def test_auto_categorization(sushi_context: Context):
     environment = "dev"
-    sushi_context.config.auto_categorize_changes.sql = AutoCategorizationMode.FULL
+    for config in sushi_context.configs.values():
+        config.auto_categorize_changes.sql = AutoCategorizationMode.FULL
     initial_add(sushi_context, environment)
 
     version = sushi_context.snapshots["sushi.waiter_as_customer_by_day"].version

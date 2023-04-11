@@ -19,7 +19,7 @@ pytest_plugins = ["tests.common_fixtures"]
 
 @pytest.fixture
 def context(tmpdir) -> Context:
-    return Context(path=str(tmpdir))
+    return Context(paths=str(tmpdir))
 
 
 @pytest.fixture
@@ -85,7 +85,7 @@ def sushi_test_dbt_context(mocker: MockerFixture) -> Context:
 def init_and_plan_sushi_context(
     path: str, mocker: MockerFixture, start: TimeLike = "1 week ago"
 ) -> t.Tuple[Context, Plan]:
-    sushi_context = Context(path=path, config="test_config")
+    sushi_context = Context(paths=path, config="test_config")
     confirm = mocker.patch("sqlmesh.core.console.Confirm")
     confirm.ask.return_value = False
 

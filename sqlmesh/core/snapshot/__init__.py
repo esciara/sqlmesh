@@ -14,6 +14,7 @@ from sqlmesh.core.snapshot.definition import (
     SnapshotTableInfo,
     fingerprint_from_model,
     merge_intervals,
+    reidentify,
     table_name,
     to_table_mapping,
 )

@@ -13,8 +13,15 @@ from __future__ import annotations
 
 import typing as t
 
+from sqlmesh.core import constants as c
 from sqlmesh.core.environment import Environment
-from sqlmesh.core.snapshot import Snapshot, SnapshotDataVersion, SnapshotId
+from sqlmesh.core.snapshot import (
+    Snapshot,
+    SnapshotDataVersion,
+    SnapshotFingerprint,
+    SnapshotId,
+    SnapshotIdLike,
+)
 from sqlmesh.utils.errors import SQLMeshError
 from sqlmesh.utils.pydantic import PydanticModel
 
@@ -55,6 +62,7 @@ class ContextDiff(PydanticModel):
         snapshots: t.Dict[str, Snapshot],
         create_from: str,
         state_reader: StateReader,
+        projects: t.Iterable[str],
     ) -> ContextDiff:
         """Create a ContextDiff object.
 
@@ -64,6 +72,7 @@ class ContextDiff(PydanticModel):
             create_from: The environment to create the target environment from if it
                 doesn't exist.
             state_reader: StateReader to access the remote environment to diff.
+            projects: The projects that available locally.
 
         Returns:
             The ContextDiff object.
@@ -81,20 +90,53 @@ class ContextDiff(PydanticModel):
         else:
             is_new_environment = False
 
+        projects = set(projects)
         existing_info = {info.name: info for info in (env.snapshots if env else [])}
+
+        get_ids: t.Set[SnapshotIdLike] = set(snapshots.values())
+        get_ids.update(existing_info.values())
+
+        if env and env.name != c.PROD:
+            prod = state_reader.get_environment(c.PROD)
+            if prod:
+                get_ids.update(prod.snapshots)
+
+        stored = state_reader.get_snapshots(get_ids)
+
+        models = {}
+        audits = {}
+        cache: t.Dict[str, SnapshotFingerprint] = {}
+
+        for snapshot in tuple(snapshots.values()) + tuple(stored.values()):
+            name = snapshot.name
+            if name in models:
+                continue
+            models[name] = snapshot.model
+            for audit in snapshot.audits:
+                audits[name] = audit
+
+        for snapshot_id, snapshot in stored.items():
+            if snapshot.project not in projects:
+                snapshots[snapshot.name] = Snapshot.from_model(
+                    snapshot.model,
+                    physical_schema=snapshot.physical_schema,
+                    models=models,
+                    ttl=snapshot.ttl,
+                    project=snapshot.project,
+                    audits=audits,
+                    cache=cache,
+                )
+
         existing_models = set(existing_info)
         current_models = set(snapshots)
         removed = existing_models - current_models
         added = current_models - existing_models
+
         modified_info = {
             name: existing_info[name]
             for name, snapshot in snapshots.items()
             if name not in added and snapshot.fingerprint != existing_info[name].fingerprint
         }
-
-        stored = state_reader.get_snapshots(
-            list(modified_info.values()) + [snapshot.snapshot_id for snapshot in snapshots.values()]
-        )
 
         merged_snapshots = {}
         modified_snapshots = {}

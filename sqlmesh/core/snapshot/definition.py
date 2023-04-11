@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing as t
 import zlib
 from collections import defaultdict
+from copy import deepcopy
 from enum import IntEnum
 
 from croniter import croniter_range
@@ -265,6 +266,8 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
         parents: The list of parent snapshots (upstream dependencies).
         audits: The list of audits used by the model.
         intervals: List of [start, end) intervals showing which time ranges a snapshot has data for.
+        dev_intervals: List of [start, end) intervals showing development intervals (forward-only).
+        project: The name of the project this snapshot is associated with.
         created_ts: Epoch millis timestamp when a snapshot was first created.
         updated_ts: Epoch millis timestamp when a snapshot was last updated.
         ttl: The time-to-live of a snapshot determines when it should be deleted after it's no longer referenced
@@ -286,6 +289,7 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
     audits: t.Tuple[Audit, ...]
     intervals: Intervals
     dev_intervals: Intervals
+    project: str = ""
     created_ts: int
     updated_ts: int
     ttl: str
@@ -349,6 +353,7 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
         physical_schema: str,
         models: t.Dict[str, Model],
         ttl: str = c.DEFAULT_SNAPSHOT_TTL,
+        project: str = "",
         version: t.Optional[str] = None,
         audits: t.Optional[t.Dict[str, Audit]] = None,
         cache: t.Optional[t.Dict[str, SnapshotFingerprint]] = None,
@@ -399,6 +404,7 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
             audits=tuple(model.referenced_audits(audits)),
             intervals=[],
             dev_intervals=[],
+            project=project,
             created_ts=created_ts,
             updated_ts=created_ts,
             ttl=ttl,
@@ -702,6 +708,40 @@ def fingerprint_from_model(
         )
 
     return cache[model.name]
+
+
+def reidentify(
+    snapshot: Snapshot,
+    models: t.Dict[str, Model],
+    audits: t.Dict[str, Audit],
+    cache: t.Optional[t.Dict[str, SnapshotFingerprint]] = None,
+) -> Snapshot:
+    new_snapshot = deepcopy(snapshot)
+
+    fingerprint_cache: t.Dict[str, SnapshotFingerprint] = {}
+
+    new_snapshot.fingerprint = fingerprint_from_model(
+        snapshot.model,
+        physical_schema=snapshot.physical_schema,
+        models=models,
+        audits=audits,
+    )
+
+    new_snapshot.parents = tuple(
+        SnapshotId(
+            name=name,
+            identifier=fingerprint_from_model(
+                models[name],
+                physical_schema=snapshot.physical_schema,
+                models=models,
+                audits=audits,
+                cache=fingerprint_cache,
+            ).to_identifier(),
+        )
+        for name in _parents_from_model(snapshot.model, models)
+    )
+
+    return new_snapshot
 
 
 def _model_data_hash(model: Model, physical_schema: str) -> str:
