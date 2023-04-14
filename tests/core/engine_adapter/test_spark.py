@@ -27,7 +27,7 @@ def test_create_table_properties(mocker: MockerFixture):
     )
 
     cursor_mock.execute.assert_called_once_with(
-        "CREATE TABLE IF NOT EXISTS `test_table` (`cola` INT, `colb` STRING) USING ICEBERG PARTITIONED BY (`colb`)"
+        "CREATE TABLE IF NOT EXISTS test_table (cola INT, colb STRING) USING ICEBERG PARTITIONED BY (colb)"
     )
 
 
@@ -59,12 +59,12 @@ def test_alter_table(mocker: MockerFixture):
     cursor_mock.execute.assert_has_calls(
         [
             # 1st call.
-            call("""ALTER TABLE `test_table` DROP COLUMNS (`c`, `d`)"""),
-            call("""ALTER TABLE `test_table` ADD COLUMNS (`a` INT, `b` STRING)"""),
+            call("""ALTER TABLE test_table DROP COLUMNS (c, d)"""),
+            call("""ALTER TABLE test_table ADD COLUMNS (a INT, b STRING)"""),
             # 2nd call.
-            call("""ALTER TABLE `test_table` ADD COLUMNS (`e` DOUBLE)"""),
+            call("""ALTER TABLE test_table ADD COLUMNS (e DOUBLE)"""),
             # 3d call.
-            call("""ALTER TABLE `test_table` DROP COLUMNS (`f`)"""),
+            call("""ALTER TABLE test_table DROP COLUMNS (f)"""),
         ]
     )
 
@@ -78,5 +78,5 @@ def test_replace_query(mocker: MockerFixture):
     adapter.replace_query("test_table", parse_one("SELECT a FROM tbl"), {"a": "int"})
 
     cursor_mock.execute.assert_called_once_with(
-        "INSERT OVERWRITE TABLE `test_table` (`a`) SELECT `a` FROM `tbl`"
+        "INSERT OVERWRITE TABLE test_table (a) SELECT a FROM tbl"
     )

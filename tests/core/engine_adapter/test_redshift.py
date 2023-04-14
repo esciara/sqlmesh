@@ -38,9 +38,7 @@ def test_create_table_from_query_no_exists(mocker: MockerFixture):
         exists=False,
     )
 
-    cursor_mock.execute.assert_called_once_with(
-        'CREATE TABLE "test_table" AS SELECT "cola" FROM "table"'
-    )
+    cursor_mock.execute.assert_called_once_with("CREATE TABLE test_table AS SELECT cola FROM table")
 
 
 def test_create_table_from_query_exists(mocker: MockerFixture):
@@ -59,9 +57,7 @@ def test_create_table_from_query_exists(mocker: MockerFixture):
         exists=True,
     )
 
-    cursor_mock.execute.assert_called_once_with(
-        'CREATE TABLE "test_table" AS SELECT "cola" FROM "table"'
-    )
+    cursor_mock.execute.assert_called_once_with("CREATE TABLE test_table AS SELECT cola FROM table")
 
 
 def test_create_table_from_query_already_exists(mocker: MockerFixture):
@@ -107,7 +103,7 @@ def test_replace_query_with_query(mocker: MockerFixture):
     adapter.replace_query(table_name="test_table", query_or_df=parse_one("SELECT cola FROM table"))
 
     cursor_mock.execute.assert_called_once_with(
-        'CREATE OR REPLACE TABLE "test_table" AS SELECT "cola" FROM "table"'
+        "CREATE OR REPLACE TABLE test_table AS SELECT cola FROM table"
     )
 
 
@@ -140,13 +136,13 @@ def test_replace_query_with_df_table_exists(mocker: MockerFixture):
 
     cursor_mock.execute.assert_has_calls(
         [
-            call('CREATE TABLE "test_table_temp_1234" ("a" INTEGER, "b" INTEGER)'),
+            call("CREATE TABLE test_table_temp_1234 (a INTEGER, b INTEGER)"),
             call(
-                'INSERT INTO "test_table_temp_1234" ("a", "b") VALUES (CAST(1 AS INTEGER), CAST(4 AS INTEGER)), (2, 5), (3, 6)'
+                "INSERT INTO test_table_temp_1234 (a, b) VALUES (CAST(1 AS INTEGER), CAST(4 AS INTEGER)), (2, 5), (3, 6)"
             ),
-            call('ALTER TABLE "test_table" RENAME TO "test_table_old_1234"'),
-            call('ALTER TABLE "test_table_temp_1234" RENAME TO "test_table"'),
-            call('DROP TABLE IF EXISTS "test_table_old_1234"'),
+            call("ALTER TABLE test_table RENAME TO test_table_old_1234"),
+            call("ALTER TABLE test_table_temp_1234 RENAME TO test_table"),
+            call("DROP TABLE IF EXISTS test_table_old_1234"),
         ]
     )
 
@@ -173,9 +169,9 @@ def test_replace_query_with_df_table_not_exists(mocker: MockerFixture):
 
     cursor_mock.execute.assert_has_calls(
         [
-            call('CREATE TABLE "test_table" ("a" INTEGER, "b" INTEGER)'),
+            call("CREATE TABLE test_table (a INTEGER, b INTEGER)"),
             call(
-                'INSERT INTO "test_table" ("a", "b") VALUES (CAST(1 AS INTEGER), CAST(4 AS INTEGER)), (2, 5), (3, 6)'
+                "INSERT INTO test_table (a, b) VALUES (CAST(1 AS INTEGER), CAST(4 AS INTEGER)), (2, 5), (3, 6)"
             ),
         ]
     )
@@ -191,7 +187,7 @@ def test_table_exists_db_table(mocker: MockerFixture):
     assert adapter.table_exists(table_name=exp.to_table("some_db.some_table"))
 
     cursor_mock.execute.assert_called_once_with(
-        """SELECT 1 FROM "information_schema"."tables" WHERE "table_name" = 'some_table' AND "table_schema" = 'some_db'"""
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'some_table' AND table_schema = 'some_db'"
     )
 
 
@@ -205,5 +201,5 @@ def test_table_exists_table_only(mocker: MockerFixture):
     assert not adapter.table_exists(table_name=exp.to_table("some_table"))
 
     cursor_mock.execute.assert_called_once_with(
-        """SELECT 1 FROM "information_schema"."tables" WHERE "table_name" = 'some_table'"""
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'some_table'"
     )
